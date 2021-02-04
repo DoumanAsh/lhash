@@ -1,6 +1,5 @@
-
-const STATE_SIZE: usize = 5;
 const BLOCK_SIZE: usize = 64;
+const STATE_SIZE: usize = 5;
 
 const INIT_STATE: [u32; STATE_SIZE] = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0];
 
@@ -68,6 +67,9 @@ pub struct Sha1 {
 }
 
 impl Sha1 {
+    const RESULT_SIZE: usize = 20;
+    const BLOCK_SIZE: usize = BLOCK_SIZE;
+
     ///New default instance.
     pub const fn new() -> Self {
         Self {
@@ -227,7 +229,7 @@ impl Sha1 {
     }
 
     ///Finalizes algorithm and returns output.
-    pub fn result(&mut self) -> [u8; 20] {
+    pub fn result(&mut self) -> [u8; Self::RESULT_SIZE] {
         const PADDING: [u8; BLOCK_SIZE] = [0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         let bits = (self.len * 8).to_be_bytes();
@@ -256,6 +258,8 @@ impl Sha1 {
         ]
     }
 }
+
+define_hmac!(HmacSha1, Sha1);
 
 #[cfg(test)]
 mod tests {
@@ -303,6 +307,30 @@ mod tests {
             assert_eq!(hash, *expected);
 
             sha.reset();
+        }
+    }
+
+    #[cfg(feature = "hmac")]
+    #[test]
+    fn test_hmac() {
+        let tests: [(&'static [u8], &'static [u8], &'static str); 8] = [
+            (b"", b"", "fbdb1d1b18aa6c08324b7d64b71fb76370690e1d"),
+            (b"key", b"The quick brown fox jumps over the lazy dog", "de7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9"),
+            (b"Jefe", b"what do ya want for nothing?", "effcdf6ae5eb2fa2d27416d5f184df9c259a7c79"),
+            (&[0xAA; 20], &[0xDD; 50], "125d7342b9ac11cd91a39af48aa17b4f63f175d3"),
+            (&[0x0B; 20], b"Hi There", "b617318655057264e28bc0b6fb378c8ef146be00"),
+            (&[0x0C; 20], b"Test With Truncation", "4c1a03424b55e07fe7f27be1d58bb9324a9a5a04"),
+            (&[0xAA; 80], b"Test Using Larger Than Block-Size Key - Hash Key First", "aa4ae5e15272d00e95705637ce8a3b55ed402112"),
+            (&[0xAA; 80], b"Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data", "e8e99d0f45237d786d6bbaa7965c7808bbff1a91"),
+        ];
+
+        for (key, data, ref expected) in tests.iter() {
+            let mut hmac = HmacSha1::new(key);
+            hmac.update(data);
+            let hash = sha_to_hex(hmac.result());
+
+            assert_eq!(hash.len(), hash.len());
+            assert_eq!(hash, *expected);
         }
     }
 }
