@@ -15,4 +15,5 @@ include = [
 
 [features]
 sha1 = []
+md5 = []
 hmac = []

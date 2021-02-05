@@ -212,7 +212,6 @@ impl Sha1 {
 
             self.transform(self.buffer);
             self.buffer_len = 0;
-            //self.buffer = [0; BLOCK_SIZE];
         }
 
         while input.len() > BLOCK_SIZE {
