@@ -39,5 +39,5 @@ jobs:
         cargo --version
         rustc --version
 
-    - name: Test
-      run: cargo test --features sha1,hmac,md5
+    - name: Test all
+      run: cargo test --features md5
