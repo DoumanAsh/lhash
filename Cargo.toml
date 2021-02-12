@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Douman <douman@gmx.se>"]
 edition = "2018"
 repository = "https://github.com/DoumanAsh/lhash"
+license = "BSL-1.0"
 description = "Minimal hashing library"
 keywords = ["crypto", "cryptography", "md5", "sha1", "const"]
 categories = ["cryptography", "no-std"]
@@ -16,3 +17,6 @@ include = [
 [features]
 md5 = []
 sha1 = []
+
+[package.metadata.docs.rs]
+features = ["sha1", "md5"]
