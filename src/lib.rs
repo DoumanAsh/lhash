@@ -6,6 +6,8 @@
 //!
 //!- `sha1`
 //!- `md5`
+//!- `sha256`
+//!- `sha512`
 //!
 //!It also includes generic hmac implementation
 
@@ -101,3 +103,8 @@ pub use md5::{md5, Md5};
 mod sha256;
 #[cfg(feature = "sha256")]
 pub use sha256::{sha256, Sha256};
+
+#[cfg(feature = "sha512")]
+mod sha512;
+#[cfg(feature = "sha512")]
+pub use sha512::{sha512, Sha512};

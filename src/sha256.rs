@@ -186,9 +186,9 @@ pub const fn sha256(input: &[u8]) -> [u8; RESULT_SIZE] {
     let mut state = INIT_STATE;
     let mut cursor = 0;
 
-    while cursor + 64 <= input.len() {
+    while cursor + BLOCK_SIZE <= input.len() {
         state = sha256_transform(state, cursor, input);
-        cursor += 64;
+        cursor += BLOCK_SIZE;
     }
 
     let mut pos = 0;
