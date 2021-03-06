@@ -386,7 +386,7 @@ mod tests {
             let hash = digest_to_hex(md5.result());
             let const_hash = digest_to_hex(super::md5(data));
 
-            assert_eq!(hash.len(), hash.len());
+            assert_eq!(const_hash.len(), hash.len());
             assert_eq!(hash, *expected);
             assert_eq!(hash, const_hash);
 

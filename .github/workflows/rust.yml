@@ -25,4 +25,4 @@ jobs:
         rustc --version
 
     - name: Test all
-      run: cargo test --features md5,sha1
+      run: cargo test --features md5,sha1,sha256

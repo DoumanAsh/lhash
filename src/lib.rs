@@ -96,3 +96,8 @@ pub use sha1::{sha1, Sha1};
 mod md5;
 #[cfg(feature = "md5")]
 pub use md5::{md5, Md5};
+
+#[cfg(feature = "sha256")]
+mod sha256;
+#[cfg(feature = "sha256")]
+pub use sha256::{sha256, Sha256};

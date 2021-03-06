@@ -372,7 +372,7 @@ mod tests {
             let hash = digest_to_hex(hasher.result());
             let const_hash = digest_to_hex(super::sha1(data));
 
-            assert_eq!(hash.len(), hash.len());
+            assert_eq!(const_hash.len(), hash.len());
             assert_eq!(hash, *expected);
             assert_eq!(const_hash, hash);
 
@@ -398,7 +398,6 @@ mod tests {
             let hash = crate::hmac::<Sha1>(data, key);
             let hash = digest_to_hex(hash);
 
-            assert_eq!(hash.len(), hash.len());
             assert_eq!(hash, *expected);
         }
     }
