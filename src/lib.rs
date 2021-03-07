@@ -32,42 +32,75 @@ pub trait Digest {
     fn result(&mut self) -> Self::OutputType;
 }
 
+///Represents key used to sign content in `hmac` algorithm.
+///
+///Comparing to `hmac` function it allows to pre-compute key and just sign input directly.
+///
+///`Digest` is only used in methods, making user to be responsible for using correct algorithm.
+pub struct HmacKey<D: Digest> {
+    key: D::BlockType,
+}
+
+impl<D: Digest> HmacKey<D> {
+    ///Creates new hmac key, using provided secret.
+    ///
+    ///If `secret` size is above that of `Digest::BlockType` then algorithm it is hashed,
+    ///reducing potential quality of hmac properties.
+    pub fn new(secret: &[u8]) -> Self {
+        let mut inner: D::BlockType = unsafe {
+            core::mem::MaybeUninit::zeroed().assume_init()
+        };
+        let key = inner.as_mut();
+
+        if secret.len() <= key.len() {
+            key[..secret.len()].copy_from_slice(secret);
+        } else {
+        let mut algo = D::new();
+            algo.update(secret);
+            let hash = algo.result();
+            let hash = hash.as_ref();
+            key[..hash.len()].copy_from_slice(hash);
+            algo.reset();
+        }
+
+        for byte in key.iter_mut() {
+            *byte ^= 0x36;
+        }
+
+        Self {
+            key: inner,
+        }
+    }
+
+    ///Signs provided `input` with the key.
+    pub fn sign(&self, input: &[u8]) -> D::OutputType {
+        let mut key = self.key;
+        let key = key.as_mut();
+
+        //inner
+        let mut algo = D::new();
+        algo.update(key);
+        algo.update(input);
+        let inner_result = algo.result();
+        algo.reset();
+
+        //outer
+        for byte in key.iter_mut() {
+            *byte ^= 0x36 ^ 0x5C;
+        }
+        algo.update(key);
+        algo.update(inner_result.as_ref());
+        algo.result()
+    }
+}
+
 ///Creates HMAC using provided `Digest` algorithm.
 ///
 ///- `input` - Data to hash.
 ///- `secret` - Data to derive HMAC's key.
 pub fn hmac<D: Digest>(input: &[u8], secret: &[u8]) -> D::OutputType {
-    let mut key: D::BlockType = unsafe {
-        core::mem::MaybeUninit::zeroed().assume_init()
-    };
-    let key = key.as_mut();
-
-    if secret.len() <= key.len() {
-        key[..secret.len()].copy_from_slice(secret);
-    } else {
-        let mut hash = D::new();
-        hash.update(secret);
-        let hash = hash.result();
-        let hash = hash.as_ref();
-        key[..hash.len()].copy_from_slice(hash);
-    }
-
-    let mut inner = D::new();
-    let mut outer = D::new();
-
-    for byte in key.iter_mut() {
-        *byte ^= 0x36;
-    }
-    inner.update(key);
-
-    for byte in key.iter_mut() {
-        *byte ^= 0x36 ^ 0x5C;
-    }
-    outer.update(key);
-
-    inner.update(input);
-    outer.update(inner.result().as_ref());
-    outer.result()
+    let key = HmacKey::<D>::new(secret);
+    key.sign(input)
 }
 
 ///Wrapper to hex format digest
