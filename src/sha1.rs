@@ -241,7 +241,7 @@ impl Sha1 {
     }
 
     ///Hashes input
-    pub fn const_update(mut self, input: &[u8]) -> Self {
+    pub const fn const_update(mut self, input: &[u8]) -> Self {
         let num = (self.len & (BLOCK_SIZE as u64 - 1)) as usize;
         self.len += input.len() as u64;
 
