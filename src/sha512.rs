@@ -121,6 +121,7 @@ const fn sha512_transform(state: [u64; STATE_SIZE], cursor: usize, input: &[u8])
     ]
 }
 
+#[inline]
 ///const `SHA512` algorithm implementation
 pub const fn sha512(input: &[u8]) -> [u8; RESULT_SIZE] {
     let mut state = INIT_STATE;
@@ -219,6 +220,49 @@ impl Sha512 {
     }
 
     ///Hashes input
+    pub const fn const_update(mut self, input: &[u8]) -> Self {
+        let num = (self.len & (BLOCK_SIZE as u64 - 1)) as usize;
+        self.len += input.len() as u64;
+
+        let mut cursor = 0;
+
+        if num > 0 {
+            let block_num = BLOCK_SIZE - num;
+
+            if input.len() < block_num {
+                let mut idx = 0;
+                while idx < input.len() {
+                    self.buffer[num + idx] = input[idx];
+                    idx += 1;
+                }
+                return self;
+            }
+
+            let mut idx = 0;
+            while idx < block_num {
+                self.buffer[num + idx] = input[idx];
+                idx += 1;
+            }
+            self.state = sha512_transform(self.state, 0, &self.buffer);
+            cursor += block_num
+        }
+
+        while input.len() - cursor >= BLOCK_SIZE {
+            self.state = sha512_transform(self.state, cursor, input);
+            cursor += BLOCK_SIZE;
+        }
+
+        let remains = input.len() - cursor;
+        let mut idx = 0;
+        while idx < remains {
+            self.buffer[idx] = input[cursor + idx];
+            idx += 1;
+        }
+
+        self
+    }
+
+    ///Hashes input
     pub fn update(&mut self, input: &[u8]) {
         let mut num = (self.len & (BLOCK_SIZE as u64 - 1)) as usize;
         self.len += input.len() as u64;
@@ -236,7 +280,7 @@ impl Sha512 {
 
             buffer.copy_from_slice(&input[..num]);
             self.state = sha512_transform(self.state, 0, &self.buffer);
-            cursor += 1
+            cursor += num;
         }
 
         while input.len() - cursor >= BLOCK_SIZE {
@@ -248,6 +292,67 @@ impl Sha512 {
         if remains > 0 {
             self.buffer[..remains].copy_from_slice(&input[cursor..]);
         }
+    }
+
+    ///Finalizes algorithm, returning the hash.
+    pub const fn const_result(mut self) -> [u8; RESULT_SIZE] {
+        let mut pos = (self.len & (BLOCK_SIZE as u64 - 1)) as usize;
+
+        self.buffer[pos] = 0x80;
+        pos += 1;
+
+        while pos != (BLOCK_SIZE - (2 * core::mem::size_of::<u64>())) {
+            pos &= BLOCK_SIZE - 1;
+
+            if pos == 0 {
+                self.state = sha512_transform(self.state, 0, &self.buffer);
+            }
+
+            self.buffer[pos] = 0;
+            pos += 1;
+        }
+
+        let len_lo = self.len.wrapping_shl(3).to_be_bytes();
+        let len_hi = self.len.wrapping_shr(64 - 3).to_be_bytes();
+
+        self.buffer[pos] = len_hi[0];
+        self.buffer[pos + 1] = len_hi[1];
+        self.buffer[pos + 2] = len_hi[2];
+        self.buffer[pos + 3] = len_hi[3];
+        self.buffer[pos + 4] = len_hi[4];
+        self.buffer[pos + 5] = len_hi[5];
+        self.buffer[pos + 6] = len_hi[6];
+        self.buffer[pos + 7] = len_hi[7];
+
+        self.buffer[pos + 8] = len_lo[0];
+        self.buffer[pos + 9] = len_lo[1];
+        self.buffer[pos + 10] = len_lo[2];
+        self.buffer[pos + 11] = len_lo[3];
+        self.buffer[pos + 12] = len_lo[4];
+        self.buffer[pos + 13] = len_lo[5];
+        self.buffer[pos + 14] = len_lo[6];
+        self.buffer[pos + 15] = len_lo[7];
+
+        self.state = sha512_transform(self.state, 0, &self.buffer);
+
+        let a = self.state[0].to_be_bytes();
+        let b = self.state[1].to_be_bytes();
+        let c = self.state[2].to_be_bytes();
+        let d = self.state[3].to_be_bytes();
+        let e = self.state[4].to_be_bytes();
+        let f = self.state[5].to_be_bytes();
+        let g = self.state[6].to_be_bytes();
+        let h = self.state[7].to_be_bytes();
+        [
+            a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7],
+            b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
+            c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7],
+            d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7],
+            e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7],
+            f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7],
+            g[0], g[1], g[2], g[3], g[4], g[5], g[6], g[7],
+            h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7],
+        ]
     }
 
     ///Finalizes algorithm, returning the hash.
@@ -356,21 +461,36 @@ mod tests {
             ("abc", "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"),
             ("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "204a8fc6dda82f0a0ced7beb8e08a41657c16ef468b228a8279be331a703c33596fd15c13b1b07f9aa1d3bea57789ca031ad85c7a71dd70354ec631238ca3445"),
             ("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu", "8e959b75dae313da8cf4f72814fc143f8f7779c6eb9f7fa17299aeadb6889018501d289e4900f7e4331b99dec4b5433ac7d329eeb6dd26545e96e55b874be909"),
+            ("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstuabcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu", "b1179d83245119c98bd9b5f813a1df5594850c7afeebb4574ad6b3e0e6fcf700b3373ee3084170c1d33a4193d8bcf1dc3005decb5d75a6c2785056a3e7fed643"),
         ];
 
         let mut hasher = Sha512::new();
+        let mut chunked = Sha512::new();
         for (data, ref expected) in tests.iter() {
             let data = data.as_bytes();
 
+            let mut chunked_const = Sha512::new();
             hasher.update(data);
+            for chunk in data.chunks(25) {
+                chunked.update(chunk);
+                chunked_const = chunked_const.const_update(chunk);
+            }
+
             let hash = digest_to_hex(hasher.result());
+            let chunked_hash = digest_to_hex(chunked.result());
             let const_hash = digest_to_hex(super::sha512(data));
+            let const_chunked_hash = digest_to_hex(chunked_const.const_result());
+            let const_hash_stateful = digest_to_hex(Sha512::new().const_update(data).const_result());
 
             assert_eq!(const_hash.len(), hash.len());
             assert_eq!(hash, *expected);
             assert_eq!(const_hash, *expected);
+            assert_eq!(hash, chunked_hash);
+            assert_eq!(hash, const_chunked_hash);
+            assert_eq!(hash, const_hash_stateful);
 
             hasher.reset();
+            chunked.reset();
         }
     }
 

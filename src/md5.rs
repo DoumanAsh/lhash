@@ -80,7 +80,7 @@ const fn md5_transform(mut state: [u32; STATE_SIZE], cursor: usize, input: &[u8]
     let mut d = state[3];
 
     let x = [
-        u32::from_le_bytes([input[cursor + 0], input[cursor + 1], input[cursor + 2], input[cursor + 3]]),
+        u32::from_le_bytes([input[cursor], input[cursor + 1], input[cursor + 2], input[cursor + 3]]),
         u32::from_le_bytes([input[cursor + 4], input[cursor + 5], input[cursor + 6], input[cursor + 7]]),
         u32::from_le_bytes([input[cursor + 8], input[cursor + 9], input[cursor + 10], input[cursor + 11]]),
         u32::from_le_bytes([input[cursor + 12], input[cursor + 13], input[cursor + 14], input[cursor + 15]]),
@@ -255,6 +255,49 @@ impl Md5 {
     }
 
     ///Hashes input
+    pub const fn const_update(mut self, input: &[u8]) -> Self {
+        let num = (self.len & (BLOCK_SIZE as u64 - 1)) as usize;
+        self.len += input.len() as u64;
+
+        let mut cursor = 0;
+
+        if num > 0 {
+            let block_num = BLOCK_SIZE - num;
+
+            if input.len() < block_num {
+                let mut idx = 0;
+                while idx < input.len() {
+                    self.buffer[num + idx] = input[idx];
+                    idx += 1;
+                }
+                return self;
+            }
+
+            let mut idx = 0;
+            while idx < block_num {
+                self.buffer[num + idx] = input[idx];
+                idx += 1;
+            }
+            self.state = md5_transform(self.state, 0, &self.buffer);
+            cursor += block_num
+        }
+
+        while input.len() - cursor >= BLOCK_SIZE {
+            self.state = md5_transform(self.state, cursor, input);
+            cursor += BLOCK_SIZE;
+        }
+
+        let remains = input.len() - cursor;
+        let mut idx = 0;
+        while idx < remains {
+            self.buffer[idx] = input[cursor + idx];
+            idx += 1;
+        }
+
+        self
+    }
+
+    ///Hashes input
     pub fn update(&mut self, input: &[u8]) {
         let mut num = (self.len & (BLOCK_SIZE as u64 - 1)) as usize;
         self.len += input.len() as u64;
@@ -272,7 +315,7 @@ impl Md5 {
 
             buffer.copy_from_slice(&input[..num]);
             self.state = md5_transform(self.state, 0, &self.buffer);
-            cursor += 1
+            cursor += num
         }
 
         while input.len() - cursor >= BLOCK_SIZE {
@@ -284,6 +327,48 @@ impl Md5 {
         if remains > 0 {
             self.buffer[..remains].copy_from_slice(&input[cursor..]);
         }
+    }
+
+    ///Finalizes algorithm and returns output.
+    pub const fn const_result(mut self) -> [u8; Self::RESULT_SIZE] {
+        let mut pos = (self.len & (BLOCK_SIZE as u64 - 1)) as usize;
+
+        self.buffer[pos] = 0x80;
+        pos += 1;
+
+        while pos != (BLOCK_SIZE - core::mem::size_of::<u64>()) {
+            pos &= BLOCK_SIZE - 1;
+
+            if pos == 0 {
+                self.state = md5_transform(self.state, 0, &self.buffer);
+            }
+
+            self.buffer[pos] = 0;
+            pos += 1;
+        }
+
+        let len = self.len.wrapping_shl(3).to_le_bytes();
+        self.buffer[pos] = len[0];
+        self.buffer[pos + 1] = len[1];
+        self.buffer[pos + 2] = len[2];
+        self.buffer[pos + 3] = len[3];
+        self.buffer[pos + 4] = len[4];
+        self.buffer[pos + 5] = len[5];
+        self.buffer[pos + 6] = len[6];
+        self.buffer[pos + 7] = len[7];
+
+        self.state = md5_transform(self.state, 0, &self.buffer);
+
+        let a = self.state[0].to_le_bytes();
+        let b = self.state[1].to_le_bytes();
+        let c = self.state[2].to_le_bytes();
+        let d = self.state[3].to_le_bytes();
+        [
+            a[0], a[1], a[2], a[3],
+            b[0], b[1], b[2], b[3],
+            c[0], c[1], c[2], c[3],
+            d[0], d[1], d[2], d[3],
+        ]
     }
 
     ///Finalizes algorithm and returns output.
@@ -379,18 +464,32 @@ mod tests {
         ];
 
         let mut md5 = Md5::new();
+        let mut chunked_md5 = Md5::new();
         for (data, ref expected) in tests.iter() {
             let data = data.as_bytes();
 
+            let mut chunked_const = Md5::new();
             md5.update(data);
+            for chunk in data.chunks(10) {
+                chunked_md5.update(chunk);
+                chunked_const = chunked_const.const_update(chunk);
+            }
+
             let hash = digest_to_hex(md5.result());
             let const_hash = digest_to_hex(super::md5(data));
+            let chunked_hash = digest_to_hex(chunked_md5.result());
+            let const_chunked_hash = digest_to_hex(chunked_const.const_result());
+            let const_hash_stateful = digest_to_hex(Md5::new().const_update(data).const_result());
 
             assert_eq!(const_hash.len(), hash.len());
             assert_eq!(hash, *expected);
             assert_eq!(hash, const_hash);
+            assert_eq!(hash, chunked_hash);
+            assert_eq!(hash, const_chunked_hash);
+            assert_eq!(hash, const_hash_stateful);
 
             md5.reset();
+            chunked_md5.reset();
         }
     }
 

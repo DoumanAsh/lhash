@@ -1,6 +1,6 @@
 [package]
 name = "lhash"
-version = "0.3.0"
+version = "1.0.0"
 authors = ["Douman <douman@gmx.se>"]
 edition = "2018"
 repository = "https://github.com/DoumanAsh/lhash"
