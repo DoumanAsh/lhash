@@ -1,6 +1,6 @@
 # lhash (loli hash)
 
-![Rust](https://github.com/DoumanAsh/lotp/workflows/Rust/badge.svg?branch=master)
+![Rust](https://github.com/DoumanAsh/lhash/workflows/Rust/badge.svg?branch=master)
 [![Crates.io](https://img.shields.io/crates/v/lhash.svg)](https://crates.io/crates/lhash)
 [![Documentation](https://docs.rs/lhash/badge.svg)](https://docs.rs/crate/lhash/)
 
