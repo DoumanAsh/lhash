@@ -44,7 +44,7 @@ pub struct HmacKey<D: Digest> {
 impl<D: Digest> HmacKey<D> {
     ///Creates new hmac key, using provided secret.
     ///
-    ///If `secret` size is above that of `Digest::BlockType` then algorithm it is hashed,
+    ///If `secret` size is above that of `Digest::BlockType` then it is hashed,
     ///reducing potential quality of hmac properties.
     pub fn new(secret: &[u8]) -> Self {
         let mut inner: D::BlockType = unsafe {
