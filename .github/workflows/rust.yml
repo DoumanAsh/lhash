@@ -1,16 +1,33 @@
 name: Rust
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/rust.yml'
+      - 'src/**.rs'
+      - 'tests/**.rs'
+      - 'Cargo.toml'
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - '**'
+    paths:
+      - '.github/workflows/rust.yml'
+      - 'src/**.rs'
+      - 'tests/**.rs'
+      - 'Cargo.toml'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
 
     - name: Install Rust Unix
-      if: runner.os != 'Windows'
       run: |
         if rustup --version >/dev/null 2>&1; then
             rustup update
@@ -19,10 +36,34 @@ jobs:
              echo ::add-path::$HOME/.cargo/bin
         fi
 
+    - name: Install Miri
+      run: |
+        rustup toolchain install nightly
+        rustup +nightly component add miri
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install Valgrind
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y valgrind
+
     - name: Rust version
       run: |
         cargo --version
         rustc --version
 
-    - name: Test all
+    - name: Check build
+      run: cargo clippy --features md5,sha1,sha256,sha512
+
+    - name: Test
       run: cargo test --features md5,sha1,sha256,sha512
+
+    - name: Valgrind Test
+      env:
+        CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1"
+      run: cargo test --release --features md5,sha1,sha256,sha512
+
+    - name: Miri Test
+      run: cargo +nightly miri test --features md5,sha1,sha256,sha512
