@@ -15,6 +15,9 @@
 #![warn(missing_docs)]
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::style))]
 
+mod fmt;
+pub use fmt::DigestFmt;
+
 ///Hashing algorithm interface
 pub trait Digest {
     ///Output type
@@ -101,19 +104,6 @@ impl<D: Digest> HmacKey<D> {
 pub fn hmac<D: Digest>(input: &[u8], secret: &[u8]) -> D::OutputType {
     let key = HmacKey::<D>::new(secret);
     key.sign(input)
-}
-
-///Wrapper to hex format digest
-pub struct DigestFmt<T>(pub T);
-
-impl<T: AsRef<[u8]>> core::fmt::Display for DigestFmt<T> {
-    #[inline(always)]
-    fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        for byt in self.0.as_ref() {
-            fmt.write_fmt(format_args!("{:02x}", byt))?;
-        }
-        Ok(())
-    }
 }
 
 #[cfg(feature = "sha1")]
