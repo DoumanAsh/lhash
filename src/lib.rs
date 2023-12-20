@@ -104,20 +104,13 @@ pub fn hmac<D: Digest>(input: &[u8], secret: &[u8]) -> D::OutputType {
 }
 
 ///Wrapper to hex format digest
-///
-///```
-///use lhash::sha1;
-///
-///let hash = format!("{}", lhash::DigestFmt(sha1(b"lolka")));
-///assert_eq!(hash, "96b83283e86b889f6dc07d52d1f1806fe70f5488");
-///```
 pub struct DigestFmt<T>(pub T);
 
 impl<T: AsRef<[u8]>> core::fmt::Display for DigestFmt<T> {
     #[inline(always)]
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         for byt in self.0.as_ref() {
-            f.write_fmt(format_args!("{:02x}", byt))?;
+            fmt.write_fmt(format_args!("{:02x}", byt))?;
         }
         Ok(())
     }

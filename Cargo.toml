@@ -22,3 +22,23 @@ sha512 = []
 
 [package.metadata.docs.rs]
 features = ["sha1", "md5", "sha256", "sha512"]
+
+[[test]]
+name = "md5"
+path = "tests/md5.rs"
+required-features = ["md5"]
+
+[[test]]
+name = "sha1"
+path = "tests/sha1.rs"
+required-features = ["sha1"]
+
+[[test]]
+name = "sha256"
+path = "tests/sha256.rs"
+required-features = ["sha256"]
+
+[[test]]
+name = "sha512"
+path = "tests/sha512.rs"
+required-features = ["sha512"]
